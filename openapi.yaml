@@ -1,0 +1,2148 @@
+openapi: 3.0.3
+info:
+  title: Evidura
+  version: 0.1.0
+  description: >-
+    Health-AI underwriting system for payers, providers, and purchasing coalitions.
+    Evidura maps a buyer-owned capability taxonomy over a churning vendor market,
+    appraises whether an offering's evidence transfers to the buyer's own
+    population, verifies regulatory status against intended use, grades vendor
+    viability in a consolidating market, recommends protective contract terms, and
+    keeps re-underwriting after signature.
+  x-product-slug: ai-health-evidura
+  x-source: ai-in-health/Accenture-Chart-The-AI-Health-Market-Explosive-Growth/
+servers:
+  - url: https://api.example.com
+tags:
+  - name: Market Map
+    description: Buyer-owned capability taxonomy and vendor language mapping
+  - name: Vendors
+    description: Vendor and offering directory with regulatory records
+  - name: Evidence
+    description: Study appraisal, population transfer, and prevalence effects
+  - name: Viability
+    description: Counterparty underwriting and consolidation exposure
+  - name: Evaluations
+    description: Scorecards, conflict disclosure, completeness gating, and decisions
+  - name: Contracts
+    description: Protective term sets, waivers, and total cost models
+  - name: Portfolio Overlap
+    description: Functional duplication and vendor concentration
+  - name: Alerts
+    description: Market events matched to the contract book
+paths:
+  /v1/capability-categories:
+    get:
+      operationId: listCapabilityCategories
+      tags: [Market Map]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Capability categories page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeCapabilityCategory"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createCapabilityCategory
+      tags: [Market Map]
+      description: >-
+        Defines a category by the clinical or financial job performed, not by vendor
+        marketing language.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CapabilityCategoryCreate"
+      responses:
+        "201":
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeCapabilityCategory"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /v1/capability-categories/{categoryId}/mappings:
+    parameters:
+      - name: categoryId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: mapVendorLanguageToCategory
+      tags: [Market Map]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [offeringId, vendorTerm, approvedBy]
+              properties:
+                offeringId:
+                  type: string
+                vendorTerm:
+                  type: string
+                approvedBy:
+                  type: string
+                note:
+                  type: string
+      responses:
+        "201":
+          description: Mapping approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeCapabilityCategory"
+  /v1/vendors:
+    get:
+      operationId: listVendors
+      tags: [Vendors]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: viabilityGrade
+          in: query
+          schema:
+            $ref: "#/components/schemas/ViabilityGrade"
+        - name: underContract
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Vendors page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeVendor"
+    post:
+      operationId: createVendor
+      tags: [Vendors]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorCreate"
+      responses:
+        "201":
+          description: Vendor added to the directory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeVendor"
+  /v1/vendors/{vendorId}/offerings:
+    parameters:
+      - $ref: "#/components/parameters/VendorId"
+    get:
+      operationId: listVendorOfferings
+      tags: [Vendors]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Offerings page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeOffering"
+    post:
+      operationId: createOffering
+      tags: [Vendors]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfferingCreate"
+      responses:
+        "201":
+          description: Offering added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeOffering"
+  /v1/offerings/{offeringId}/regulatory-record:
+    parameters:
+      - $ref: "#/components/parameters/OfferingId"
+    put:
+      operationId: verifyRegulatoryRecord
+      tags: [Vendors]
+      description: >-
+        Records status verified against the authoritative register and compares the
+        cleared intended use with the workflow and population the buyer plans.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegulatoryRecord"
+      responses:
+        "200":
+          description: Regulatory record verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeRegulatoryRecord"
+  /v1/offerings/{offeringId}/intended-use-escalations:
+    parameters:
+      - $ref: "#/components/parameters/OfferingId"
+    post:
+      operationId: escalateIntendedUseGap
+      tags: [Vendors]
+      description: >-
+        Raises the case where the buyer's planned use falls outside the cleared
+        indication, for explicit acceptance before purchase.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gapDescription, raisedBy]
+              properties:
+                gapDescription:
+                  type: string
+                gapType:
+                  type: string
+                  enum: [population_outside_indication, workflow_outside_indication, output_used_differently, no_clearance_claimed]
+                raisedBy:
+                  type: string
+                acceptedBy:
+                  type: string
+                acceptanceRationale:
+                  type: string
+      responses:
+        "201":
+          description: Escalation recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeRegulatoryRecord"
+  /v1/offerings/{offeringId}/evidence-items:
+    parameters:
+      - $ref: "#/components/parameters/OfferingId"
+    get:
+      operationId: listEvidenceItems
+      tags: [Evidence]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Evidence items page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeEvidenceItem"
+    post:
+      operationId: appraiseEvidenceItem
+      tags: [Evidence]
+      description: >-
+        Structured appraisal of one study or vendor claim. Missing design,
+        population, calibration, or subgroup information is recorded as a finding
+        rather than left blank.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvidenceItemCreate"
+      responses:
+        "201":
+          description: Evidence appraised
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeEvidenceItem"
+  /v1/offerings/{offeringId}/population-match:
+    parameters:
+      - $ref: "#/components/parameters/OfferingId"
+    post:
+      operationId: assessPopulationMatch
+      tags: [Evidence]
+      description: >-
+        Computes how the buyer's population differs from the study population and
+        what local prevalence does to the operating point the vendor recommends.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PopulationMatchAssessmentCreate"
+      responses:
+        "200":
+          description: Population transfer assessment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopePopulationMatchAssessment"
+        "422":
+          description: Local prevalence or cohort definition missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/vendors/{vendorId}/viability-assessments:
+    parameters:
+      - $ref: "#/components/parameters/VendorId"
+    get:
+      operationId: listViabilityAssessments
+      tags: [Viability]
+      description: Time series of grades, so that a downgrade can be dated.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Viability assessments page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeViabilityAssessment"
+    post:
+      operationId: underwriteVendorViability
+      tags: [Viability]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ViabilityAssessmentCreate"
+      responses:
+        "201":
+          description: Viability graded with refresh date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeViabilityAssessment"
+  /v1/vendors/{vendorId}/consolidation-events:
+    parameters:
+      - $ref: "#/components/parameters/VendorId"
+    post:
+      operationId: recordConsolidationEvent
+      tags: [Viability]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConsolidationEvent"
+      responses:
+        "201":
+          description: Event recorded and matched to exposed contracts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeConsolidationEvent"
+  /v1/evaluations:
+    get:
+      operationId: listEvaluationProjects
+      tags: [Evaluations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, appraising, file_incomplete, ready_for_vote, decided, withdrawn]
+        - name: outcome
+          in: query
+          schema:
+            $ref: "#/components/schemas/DecisionOutcome"
+      responses:
+        "200":
+          description: Evaluation projects page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeEvaluationProject"
+    post:
+      operationId: openEvaluationProject
+      tags: [Evaluations]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvaluationProjectCreate"
+      responses:
+        "201":
+          description: Evaluation opened with completeness checklist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeEvaluationProject"
+  /v1/evaluations/{evaluationId}/conflict-disclosures:
+    parameters:
+      - $ref: "#/components/parameters/EvaluationId"
+    post:
+      operationId: discloseConflictOfInterest
+      tags: [Evaluations]
+      description: >-
+        Mandatory before scoring. An undisclosed relationship discovered later
+        invalidates the affected scores and forces a re-vote.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConflictDisclosure"
+      responses:
+        "201":
+          description: Disclosure recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeConflictDisclosure"
+  /v1/evaluations/{evaluationId}/scorecards:
+    parameters:
+      - $ref: "#/components/parameters/EvaluationId"
+    post:
+      operationId: submitScorecard
+      tags: [Evaluations]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScorecardResultCreate"
+      responses:
+        "201":
+          description: Scorecard submitted with any dissent recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeScorecardResult"
+        "409":
+          description: Conflict disclosure missing for this evaluator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/evaluations/{evaluationId}/data-use-authorisations:
+    parameters:
+      - $ref: "#/components/parameters/EvaluationId"
+    post:
+      operationId: authoriseEvaluationDataUse
+      tags: [Evaluations]
+      description: >-
+        Records the lawful basis, agreement in force, minimisation applied, and
+        end-of-evaluation disposition before any patient data moves to a candidate.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvaluationDataUseAuthorisation"
+      responses:
+        "201":
+          description: Data use authorised
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeEvaluationDataUseAuthorisation"
+        "422":
+          description: Agreement or lawful basis missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/evaluations/{evaluationId}/decision:
+    parameters:
+      - $ref: "#/components/parameters/EvaluationId"
+    post:
+      operationId: recordEvaluationDecision
+      tags: [Evaluations]
+      description: >-
+        Proceed, proceed with conditions, decline, or defer. Declines are retained
+        and searchable so the organisation stops re-evaluating from zero.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionRecordCreate"
+      responses:
+        "201":
+          description: Decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeDecisionRecord"
+        "409":
+          description: Evaluation file incomplete, vote blocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/decisions:
+    get:
+      operationId: listDecisionRecords
+      tags: [Evaluations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: offeringId
+          in: query
+          schema:
+            type: string
+        - name: outcome
+          in: query
+          schema:
+            $ref: "#/components/schemas/DecisionOutcome"
+      responses:
+        "200":
+          description: Decision records page including prior declines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeDecisionRecord"
+  /v1/offerings/{offeringId}/contract-terms:
+    parameters:
+      - $ref: "#/components/parameters/OfferingId"
+    get:
+      operationId: getRecommendedContractTerms
+      tags: [Contracts]
+      description: >-
+        Protective clause set recommended for this vendor's viability grade, with the
+        reasoning that justifies each demand.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Recommended and secured protections
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeContractTermSet"
+    put:
+      operationId: recordSecuredContractTerms
+      tags: [Contracts]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContractTermSet"
+      responses:
+        "200":
+          description: Secured protections recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeContractTermSet"
+  /v1/offerings/{offeringId}/contract-terms/waivers:
+    parameters:
+      - $ref: "#/components/parameters/OfferingId"
+    post:
+      operationId: waiveContractProtection
+      tags: [Contracts]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [protection, riskOwnerId, approvedBy, rationale]
+              properties:
+                protection:
+                  $ref: "#/components/schemas/ProtectionType"
+                riskOwnerId:
+                  type: string
+                approvedBy:
+                  type: string
+                rationale:
+                  type: string
+                reviewBy:
+                  type: string
+                  format: date
+      responses:
+        "201":
+          description: Waiver recorded as an accepted risk
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeContractTermSet"
+  /v1/offerings/{offeringId}/cost-model:
+    parameters:
+      - $ref: "#/components/parameters/OfferingId"
+    put:
+      operationId: setTotalCostModel
+      tags: [Contracts]
+      description: >-
+        Licence, integration, interface, clinician time, validation, monitoring, and
+        exit costs, normalised per unit of clinical or administrative work.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotalCostModel"
+      responses:
+        "200":
+          description: Cost model recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeTotalCostModel"
+  /v1/offerings/{offeringId}/integration-profile:
+    parameters:
+      - $ref: "#/components/parameters/OfferingId"
+    put:
+      operationId: setIntegrationProfile
+      tags: [Contracts]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrationProfile"
+      responses:
+        "200":
+          description: Integration profile recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeIntegrationProfile"
+  /v1/portfolio/overlap-findings:
+    get:
+      operationId: listOverlapFindings
+      tags: [Portfolio Overlap]
+      description: >-
+        Functional duplication between a candidate offering and contracts already
+        held, with the incumbent spend attached.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, decided, dismissed]
+      responses:
+        "200":
+          description: Overlap findings page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeOverlapFinding"
+  /v1/portfolio/overlap-findings/{findingId}/decision:
+    parameters:
+      - name: findingId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: decideOverlapFinding
+      tags: [Portfolio Overlap]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision, decidedBy]
+              properties:
+                decision:
+                  type: string
+                  enum: [consolidate_to_incumbent, consolidate_to_candidate, coexist, defer]
+                decidedBy:
+                  type: string
+                rationale:
+                  type: string
+                spendReleased:
+                  $ref: "#/components/schemas/Money"
+      responses:
+        "200":
+          description: Overlap decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeOverlapFinding"
+  /v1/portfolio/concentration:
+    get:
+      operationId: getPortfolioConcentration
+      tags: [Portfolio Overlap]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: dimension
+          in: query
+          schema:
+            type: string
+            enum: [vendor, ultimate_owner, capability_category, viability_grade]
+      responses:
+        "200":
+          description: Concentration of committed spend
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopePortfolioConcentration"
+  /v1/alerts:
+    get:
+      operationId: listMarketAlerts
+      tags: [Alerts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: eventType
+          in: query
+          schema:
+            $ref: "#/components/schemas/MarketEventType"
+        - name: unacknowledgedOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Alerts page with exposed contracts and held protections
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeMarketAlert"
+    post:
+      operationId: ingestMarketEvent
+      tags: [Alerts]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketEventSubmission"
+      responses:
+        "202":
+          description: Event accepted and matched to the contract book
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeMarketAlert"
+  /v1/alerts/{alertId}/acknowledgement:
+    parameters:
+      - name: alertId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: acknowledgeMarketAlert
+      tags: [Alerts]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [acknowledgedBy, action]
+              properties:
+                acknowledgedBy:
+                  type: string
+                action:
+                  type: string
+                  enum: [invoke_protection, renegotiate, plan_exit, accept_and_monitor, no_action_required]
+                note:
+                  type: string
+      responses:
+        "200":
+          description: Alert acknowledged by the contract owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeMarketAlert"
+  /v1/re-underwriting/schedule:
+    get:
+      operationId: listReUnderwritingSchedule
+      tags: [Viability]
+      description: >-
+        Offerings under contract whose evidence or viability appraisal is due or
+        overdue for refresh.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: overdueOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Re-underwriting schedule page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeOffering"
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    VendorId:
+      name: vendorId
+      in: path
+      required: true
+      schema:
+        type: string
+    OfferingId:
+      name: offeringId
+      in: path
+      required: true
+      schema:
+        type: string
+    EvaluationId:
+      name: evaluationId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    UnprocessableEntity:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    ResponseMeta:
+      type: object
+      required: [requestId, timestamp]
+      properties:
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          example: USD
+    ViabilityGrade:
+      type: string
+      enum: [durable, adequate, watch, fragile, unrateable]
+    DecisionOutcome:
+      type: string
+      enum: [proceed, proceed_with_conditions, decline, defer]
+    ProtectionType:
+      type: string
+      enum:
+        - model_artefact_escrow
+        - configuration_escrow
+        - data_and_output_portability
+        - transition_assistance
+        - change_of_control_consent
+        - price_protection_on_acquisition
+        - local_performance_remedy
+        - retraining_commitment
+        - post_market_surveillance_duty
+        - source_code_escrow
+        - continuity_of_support_commitment
+    MarketEventType:
+      type: string
+      enum:
+        - acquisition
+        - funding_round
+        - funding_failure
+        - insolvency
+        - product_discontinued
+        - recall
+        - safety_communication
+        - clearance_change
+        - leadership_change
+        - breach_disclosure
+    CapabilityCategory:
+      type: object
+      required: [id, name, jobDescription]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        jobDescription:
+          type: string
+          description: The clinical or financial job performed, stated independently of vendor language
+        valueAtStakeAnnual:
+          $ref: "#/components/schemas/Money"
+        buyerSide:
+          type: string
+          enum: [provider, payer, both]
+        mappedVendorTerms:
+          type: array
+          items:
+            type: object
+            properties:
+              vendorTerm:
+                type: string
+              offeringId:
+                type: string
+              approvedBy:
+                type: string
+        ownerId:
+          type: string
+        incumbentContractCount:
+          type: integer
+    CapabilityCategoryCreate:
+      type: object
+      required: [name, jobDescription]
+      properties:
+        name:
+          type: string
+        jobDescription:
+          type: string
+        valueAtStakeAnnual:
+          $ref: "#/components/schemas/Money"
+        buyerSide:
+          type: string
+          enum: [provider, payer, both]
+        ownerId:
+          type: string
+    Vendor:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        ultimateOwner:
+          type: string
+        headquarters:
+          type: string
+        foundedYear:
+          type: integer
+        currentViabilityGrade:
+          $ref: "#/components/schemas/ViabilityGrade"
+        viabilityRefreshDueOn:
+          type: string
+          format: date
+        underContract:
+          type: boolean
+        committedSpendAnnual:
+          $ref: "#/components/schemas/Money"
+        businessAssociateAgreementOnFile:
+          type: boolean
+        offeringCount:
+          type: integer
+    VendorCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        ultimateOwner:
+          type: string
+        headquarters:
+          type: string
+        foundedYear:
+          type: integer
+    Offering:
+      type: object
+      required: [id, vendorId, name, categoryId]
+      properties:
+        id:
+          type: string
+        vendorId:
+          type: string
+        name:
+          type: string
+        categoryId:
+          type: string
+        vendorDescription:
+          type: string
+        currentVersion:
+          $ref: "#/components/schemas/OfferingVersion"
+        regulatoryStatusVerified:
+          type: boolean
+        evidenceAppraisalComplete:
+          type: boolean
+        populationMatchGrade:
+          type: string
+          enum: [close, moderate, distant, untestable]
+        lastDecisionOutcome:
+          $ref: "#/components/schemas/DecisionOutcome"
+        lastDecisionAt:
+          type: string
+          format: date
+        reUnderwritingDueOn:
+          type: string
+          format: date
+    OfferingCreate:
+      type: object
+      required: [name, categoryId]
+      properties:
+        name:
+          type: string
+        categoryId:
+          type: string
+        vendorDescription:
+          type: string
+        versionLabel:
+          type: string
+    OfferingVersion:
+      type: object
+      required: [versionLabel]
+      properties:
+        versionLabel:
+          type: string
+        releasedAt:
+          type: string
+          format: date
+        learningModel:
+          type: boolean
+        retrainingCadence:
+          type: string
+        breakingChangeNote:
+          type: string
+    RegulatoryRecord:
+      type: object
+      required: [status, verifiedBy]
+      properties:
+        status:
+          type: string
+          enum: [not_a_device_claimed, exempt_clinical_decision_support, cleared, approved, ce_marked, no_status_found, status_disputed]
+        registerReference:
+          type: string
+          description: Identifier in the authoritative device register
+        clearedIntendedUse:
+          type: string
+        indicatedPopulation:
+          type: string
+        buyerPlannedUse:
+          type: string
+        buyerPlannedPopulation:
+          type: string
+        intendedUseGap:
+          type: boolean
+        gapType:
+          type: string
+          enum: [population_outside_indication, workflow_outside_indication, output_used_differently, no_clearance_claimed, none]
+        gapAcceptedBy:
+          type: string
+        postMarketDutyAllocatedTo:
+          type: string
+          enum: [vendor, buyer, shared, unallocated]
+        verifiedBy:
+          type: string
+        verifiedAt:
+          type: string
+          format: date-time
+    EvidenceItem:
+      type: object
+      required: [id, offeringId, sourceType, appraisalFindings]
+      properties:
+        id:
+          type: string
+        offeringId:
+          type: string
+        sourceType:
+          type: string
+          enum: [peer_reviewed_study, preprint, vendor_white_paper, conference_abstract, customer_reference, regulatory_summary, unpublished_internal]
+        citation:
+          type: string
+        design:
+          type: string
+          enum: [retrospective_single_site, retrospective_multi_site, prospective_observational, randomised_trial, silent_trial, simulation, undisclosed]
+        studyPopulation:
+          type: string
+        sampleSize:
+          type: integer
+        prevalenceInStudy:
+          type: number
+          format: float
+        reportedMetrics:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+        calibrationReported:
+          type: boolean
+        subgroupResultsReported:
+          type: boolean
+        subgroupsCovered:
+          type: array
+          items:
+            type: string
+        outcomeMeasured:
+          type: string
+          enum: [model_discrimination, process_change, clinical_outcome, financial_outcome, none_measured]
+        independenceOfAuthors:
+          type: string
+          enum: [vendor_authored, vendor_funded, independent, unknown]
+        appraisalFindings:
+          type: array
+          items:
+            type: object
+            properties:
+              finding:
+                type: string
+              severity:
+                type: string
+                enum: [informational, caution, material_gap, disqualifying]
+        appraisedBy:
+          type: string
+        appraisedAt:
+          type: string
+          format: date-time
+    EvidenceItemCreate:
+      type: object
+      required: [sourceType, design, appraisalFindings]
+      properties:
+        sourceType:
+          type: string
+          enum: [peer_reviewed_study, preprint, vendor_white_paper, conference_abstract, customer_reference, regulatory_summary, unpublished_internal]
+        citation:
+          type: string
+        design:
+          type: string
+          enum: [retrospective_single_site, retrospective_multi_site, prospective_observational, randomised_trial, silent_trial, simulation, undisclosed]
+        studyPopulation:
+          type: string
+        sampleSize:
+          type: integer
+        prevalenceInStudy:
+          type: number
+          format: float
+        reportedMetrics:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+        calibrationReported:
+          type: boolean
+        subgroupResultsReported:
+          type: boolean
+        outcomeMeasured:
+          type: string
+          enum: [model_discrimination, process_change, clinical_outcome, financial_outcome, none_measured]
+        independenceOfAuthors:
+          type: string
+          enum: [vendor_authored, vendor_funded, independent, unknown]
+        appraisalFindings:
+          type: array
+          items:
+            type: object
+            properties:
+              finding:
+                type: string
+              severity:
+                type: string
+                enum: [informational, caution, material_gap, disqualifying]
+    PopulationMatchAssessment:
+      type: object
+      required: [offeringId, localPrevalence, matchGrade]
+      properties:
+        offeringId:
+          type: string
+        evidenceItemId:
+          type: string
+        localCohortDefinition:
+          type: string
+        localPrevalence:
+          type: number
+          format: float
+        studyPrevalence:
+          type: number
+          format: float
+        recommendedOperatingPoint:
+          type: string
+        prevalenceAdjustedPositivePredictiveValue:
+          type: number
+          format: float
+        expectedAlertsPerClinicianPerWeek:
+          type: number
+          format: float
+        expectedFalsePositivesPerTruePositive:
+          type: number
+          format: float
+        differencesFromStudyPopulation:
+          type: array
+          items:
+            type: string
+        codingAndWorkflowDifferences:
+          type: array
+          items:
+            type: string
+        matchGrade:
+          type: string
+          enum: [close, moderate, distant, untestable]
+        assessedBy:
+          type: string
+    PopulationMatchAssessmentCreate:
+      type: object
+      required: [localCohortDefinition, localPrevalence]
+      properties:
+        evidenceItemId:
+          type: string
+        localCohortDefinition:
+          type: string
+        localPrevalence:
+          type: number
+          format: float
+        recommendedOperatingPoint:
+          type: string
+        clinicianCount:
+          type: integer
+        differencesFromStudyPopulation:
+          type: array
+          items:
+            type: string
+    ViabilityAssessment:
+      type: object
+      required: [id, vendorId, grade, assessedAt]
+      properties:
+        id:
+          type: string
+        vendorId:
+          type: string
+        grade:
+          $ref: "#/components/schemas/ViabilityGrade"
+        assessedAt:
+          type: string
+          format: date-time
+        refreshDueOn:
+          type: string
+          format: date
+        fundingStage:
+          type: string
+        lastRaiseAt:
+          type: string
+          format: date
+        runwaySignal:
+          type: string
+          enum: [strong, adequate, thin, distressed, unknown]
+        revenueConcentrationTopCustomerPercent:
+          type: number
+          format: float
+        healthcareCustomerCount:
+          type: integer
+        supportDepth:
+          type: string
+          enum: [dedicated_team, shared_team, founder_dependent, outsourced, unknown]
+        keyPersonDependency:
+          type: boolean
+        acquisitionExposure:
+          type: string
+          enum: [likely_acquirer, likely_target, strategic_owner_backed, public_company, unclear]
+        downgradeFromPreviousGrade:
+          type: boolean
+        rationale:
+          type: string
+        assessedBy:
+          type: string
+    ViabilityAssessmentCreate:
+      type: object
+      required: [grade, rationale, assessedBy]
+      properties:
+        grade:
+          $ref: "#/components/schemas/ViabilityGrade"
+        refreshMonths:
+          type: integer
+        fundingStage:
+          type: string
+        runwaySignal:
+          type: string
+          enum: [strong, adequate, thin, distressed, unknown]
+        revenueConcentrationTopCustomerPercent:
+          type: number
+          format: float
+        supportDepth:
+          type: string
+          enum: [dedicated_team, shared_team, founder_dependent, outsourced, unknown]
+        acquisitionExposure:
+          type: string
+          enum: [likely_acquirer, likely_target, strategic_owner_backed, public_company, unclear]
+        rationale:
+          type: string
+        assessedBy:
+          type: string
+    ConsolidationEvent:
+      type: object
+      required: [eventType, occurredAt]
+      properties:
+        id:
+          type: string
+        vendorId:
+          type: string
+        eventType:
+          $ref: "#/components/schemas/MarketEventType"
+        occurredAt:
+          type: string
+          format: date
+        counterparty:
+          type: string
+        newUltimateOwner:
+          type: string
+        productContinuityStatement:
+          type: string
+        exposedContractIds:
+          type: array
+          items:
+            type: string
+        source:
+          type: string
+    IntegrationProfile:
+      type: object
+      properties:
+        interoperabilityStandards:
+          type: array
+          items:
+            type: string
+            enum: [hl7_v2, fhir_r4, cda, dicom, ncpdp, x12, proprietary_api, file_drop]
+        terminologiesSupported:
+          type: array
+          items:
+            type: string
+            enum: [snomed_ct, loinc, icd10, rxnorm, cpt, local_only]
+        writesBackToRecord:
+          type: boolean
+        clinicianWorkflowTouchpoints:
+          type: array
+          items:
+            type: string
+        implementationWeeksEstimate:
+          type: integer
+        hostingModel:
+          type: string
+          enum: [vendor_cloud, buyer_tenant, on_premise, hybrid]
+        dataResidency:
+          type: string
+        deIdentificationSupported:
+          type: boolean
+    TotalCostModel:
+      type: object
+      required: [termMonths, workUnit]
+      properties:
+        termMonths:
+          type: integer
+        licenceCost:
+          $ref: "#/components/schemas/Money"
+        integrationCost:
+          $ref: "#/components/schemas/Money"
+        interfaceRunCost:
+          $ref: "#/components/schemas/Money"
+        clinicianTimeCost:
+          $ref: "#/components/schemas/Money"
+        validationCost:
+          $ref: "#/components/schemas/Money"
+        monitoringCost:
+          $ref: "#/components/schemas/Money"
+        exitCost:
+          $ref: "#/components/schemas/Money"
+        totalCost:
+          $ref: "#/components/schemas/Money"
+        workUnit:
+          type: string
+          example: per completed prior authorisation
+        expectedWorkUnits:
+          type: integer
+        costPerWorkUnit:
+          $ref: "#/components/schemas/Money"
+    ContractTermSet:
+      type: object
+      required: [offeringId]
+      properties:
+        offeringId:
+          type: string
+        drivingViabilityGrade:
+          $ref: "#/components/schemas/ViabilityGrade"
+        recommended:
+          type: array
+          items:
+            type: object
+            properties:
+              protection:
+                $ref: "#/components/schemas/ProtectionType"
+              reasoning:
+                type: string
+              mandatory:
+                type: boolean
+        secured:
+          type: array
+          items:
+            type: object
+            properties:
+              protection:
+                $ref: "#/components/schemas/ProtectionType"
+              clauseReference:
+                type: string
+        waived:
+          type: array
+          items:
+            type: object
+            properties:
+              protection:
+                $ref: "#/components/schemas/ProtectionType"
+              riskOwnerId:
+                type: string
+              approvedBy:
+                type: string
+              rationale:
+                type: string
+              reviewBy:
+                type: string
+                format: date
+    EvaluationProject:
+      type: object
+      required: [id, offeringId, status]
+      properties:
+        id:
+          type: string
+        offeringId:
+          type: string
+        categoryId:
+          type: string
+        requestingBusinessUnit:
+          type: string
+        status:
+          type: string
+          enum: [open, appraising, file_incomplete, ready_for_vote, decided, withdrawn]
+        completenessChecklist:
+          type: array
+          items:
+            type: object
+            properties:
+              item:
+                type: string
+              satisfied:
+                type: boolean
+              reference:
+                type: string
+        openedAt:
+          type: string
+          format: date-time
+        targetDecisionDate:
+          type: string
+          format: date
+        evaluatorIds:
+          type: array
+          items:
+            type: string
+        priorDecisionRecordIds:
+          type: array
+          items:
+            type: string
+    EvaluationProjectCreate:
+      type: object
+      required: [offeringId, requestingBusinessUnit]
+      properties:
+        offeringId:
+          type: string
+        requestingBusinessUnit:
+          type: string
+        targetDecisionDate:
+          type: string
+          format: date
+        evaluatorIds:
+          type: array
+          items:
+            type: string
+    ConflictDisclosure:
+      type: object
+      required: [evaluatorId, relationship]
+      properties:
+        id:
+          type: string
+        evaluatorId:
+          type: string
+        vendorId:
+          type: string
+        relationship:
+          type: string
+          enum: [none, advisory_role, equity_holding, research_funding, speaking_fees, family_relationship, former_employment]
+        detail:
+          type: string
+        recusalRequired:
+          type: boolean
+        disclosedAt:
+          type: string
+          format: date-time
+        discoveredLate:
+          type: boolean
+        invalidatedScorecardIds:
+          type: array
+          items:
+            type: string
+    ScorecardResult:
+      type: object
+      required: [id, evaluationId, evaluatorId, dimensionScores]
+      properties:
+        id:
+          type: string
+        evaluationId:
+          type: string
+        evaluatorId:
+          type: string
+        evaluatorRole:
+          type: string
+          enum: [clinical, sourcing, security, legal, finance, operations]
+        dimensionScores:
+          type: array
+          items:
+            type: object
+            properties:
+              dimension:
+                type: string
+                enum: [evidence_strength, population_transfer, regulatory_fit, clinical_workflow_fit, integration_burden, viability, cost_per_work_unit, security_posture]
+              score:
+                type: integer
+                minimum: 1
+                maximum: 5
+              comment:
+                type: string
+        dissent:
+          type: string
+        submittedAt:
+          type: string
+          format: date-time
+        invalidated:
+          type: boolean
+    ScorecardResultCreate:
+      type: object
+      required: [evaluatorId, dimensionScores]
+      properties:
+        evaluatorId:
+          type: string
+        evaluatorRole:
+          type: string
+          enum: [clinical, sourcing, security, legal, finance, operations]
+        dimensionScores:
+          type: array
+          items:
+            type: object
+            properties:
+              dimension:
+                type: string
+              score:
+                type: integer
+              comment:
+                type: string
+        dissent:
+          type: string
+    EvaluationDataUseAuthorisation:
+      type: object
+      required: [lawfulBasis, agreementReference, disposition]
+      properties:
+        id:
+          type: string
+        lawfulBasis:
+          type: string
+          enum: [treatment_operations, limited_data_set, de_identified, patient_authorisation, waiver_of_authorisation, gdpr_article_9_explicit_consent]
+        agreementReference:
+          type: string
+          description: Business associate agreement or processor terms in force before data moves
+        dataCategories:
+          type: array
+          items:
+            type: string
+        minimisationApplied:
+          type: string
+        recordCount:
+          type: integer
+        reIdentificationRiskNote:
+          type: string
+        destinationEnvironment:
+          type: string
+          enum: [buyer_tenant, vendor_cloud, neutral_enclave]
+        disposition:
+          type: string
+          enum: [returned, destroyed, retained_under_agreement]
+        dispositionEvidence:
+          type: string
+        authorisedBy:
+          type: string
+    DecisionRecordCreate:
+      type: object
+      required: [outcome, decidedBy, rationale]
+      properties:
+        outcome:
+          $ref: "#/components/schemas/DecisionOutcome"
+        decidedBy:
+          type: string
+        committee:
+          type: string
+        rationale:
+          type: string
+        conditions:
+          type: array
+          items:
+            type: string
+        dissentSummary:
+          type: string
+        evidenceReliedUpon:
+          type: array
+          items:
+            type: string
+        reconsiderAfter:
+          type: string
+          format: date
+    DecisionRecord:
+      type: object
+      required: [id, evaluationId, offeringId, outcome, decidedAt]
+      properties:
+        id:
+          type: string
+        evaluationId:
+          type: string
+        offeringId:
+          type: string
+        outcome:
+          $ref: "#/components/schemas/DecisionOutcome"
+        decidedAt:
+          type: string
+          format: date-time
+        decidedBy:
+          type: string
+        committee:
+          type: string
+        rationale:
+          type: string
+        conditions:
+          type: array
+          items:
+            type: string
+        dissentSummary:
+          type: string
+        evidenceReliedUpon:
+          type: array
+          items:
+            type: string
+        declineReasonsStillValid:
+          type: boolean
+        reconsiderAfter:
+          type: string
+          format: date
+        handedToDeploymentRegister:
+          type: boolean
+    OverlapFinding:
+      type: object
+      required: [id, categoryId, candidateOfferingId, status]
+      properties:
+        id:
+          type: string
+        categoryId:
+          type: string
+        candidateOfferingId:
+          type: string
+        incumbentContractIds:
+          type: array
+          items:
+            type: string
+        incumbentOfferingIds:
+          type: array
+          items:
+            type: string
+        overlapDescription:
+          type: string
+        incumbentAnnualSpend:
+          $ref: "#/components/schemas/Money"
+        status:
+          type: string
+          enum: [open, decided, dismissed]
+        decision:
+          type: string
+          enum: [consolidate_to_incumbent, consolidate_to_candidate, coexist, defer]
+        decidedBy:
+          type: string
+        spendReleased:
+          $ref: "#/components/schemas/Money"
+    PortfolioConcentration:
+      type: object
+      required: [dimension, entries]
+      properties:
+        dimension:
+          type: string
+          enum: [vendor, ultimate_owner, capability_category, viability_grade]
+        asOf:
+          type: string
+          format: date
+        totalCommittedSpend:
+          $ref: "#/components/schemas/Money"
+        entries:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              committedSpend:
+                $ref: "#/components/schemas/Money"
+              sharePercent:
+                type: number
+                format: float
+              contractCount:
+                type: integer
+              worstViabilityGrade:
+                $ref: "#/components/schemas/ViabilityGrade"
+    MarketEventSubmission:
+      type: object
+      required: [eventType, vendorName, occurredAt]
+      properties:
+        eventType:
+          $ref: "#/components/schemas/MarketEventType"
+        vendorName:
+          type: string
+        vendorId:
+          type: string
+        occurredAt:
+          type: string
+          format: date
+        detail:
+          type: string
+        source:
+          type: string
+    MarketAlert:
+      type: object
+      required: [id, eventType, raisedAt, severity]
+      properties:
+        id:
+          type: string
+        eventType:
+          $ref: "#/components/schemas/MarketEventType"
+        vendorId:
+          type: string
+        offeringIds:
+          type: array
+          items:
+            type: string
+        raisedAt:
+          type: string
+          format: date-time
+        severity:
+          type: string
+          enum: [informational, elevated, urgent]
+        exposedContracts:
+          type: array
+          items:
+            type: object
+            properties:
+              contractId:
+                type: string
+              contractOwnerId:
+                type: string
+              annualValue:
+                $ref: "#/components/schemas/Money"
+              protectionsHeld:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProtectionType"
+        notifiedAt:
+          type: string
+          format: date-time
+        serviceLevelHours:
+          type: integer
+        acknowledgedBy:
+          type: string
+        action:
+          type: string
+          enum: [invoke_protection, renegotiate, plan_exit, accept_and_monitor, no_action_required]
+    DataEnvelopeCapabilityCategory:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CapabilityCategory"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeVendor:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/Vendor"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeOffering:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/Offering"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeRegulatoryRecord:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/RegulatoryRecord"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeEvidenceItem:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/EvidenceItem"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopePopulationMatchAssessment:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/PopulationMatchAssessment"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeViabilityAssessment:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ViabilityAssessment"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeConsolidationEvent:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ConsolidationEvent"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeIntegrationProfile:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/IntegrationProfile"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeTotalCostModel:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/TotalCostModel"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeContractTermSet:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ContractTermSet"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeEvaluationProject:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/EvaluationProject"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeConflictDisclosure:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ConflictDisclosure"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeScorecardResult:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ScorecardResult"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeEvaluationDataUseAuthorisation:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/EvaluationDataUseAuthorisation"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeDecisionRecord:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/DecisionRecord"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeOverlapFinding:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/OverlapFinding"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopePortfolioConcentration:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/PortfolioConcentration"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeMarketAlert:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/MarketAlert"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeCapabilityCategory:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/CapabilityCategory"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeVendor:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Vendor"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeOffering:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Offering"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeEvidenceItem:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/EvidenceItem"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeViabilityAssessment:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ViabilityAssessment"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeEvaluationProject:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/EvaluationProject"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeDecisionRecord:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/DecisionRecord"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeOverlapFinding:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/OverlapFinding"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeMarketAlert:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/MarketAlert"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
